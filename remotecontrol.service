@@ -1,0 +1,12 @@
+[Unit]
+Description=Remote Control
+After=network.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/piremote
+ExecStart=/usr/bin/python3 remotecontrol.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
