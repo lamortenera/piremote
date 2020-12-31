@@ -1,8 +1,56 @@
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from http import HTTPStatus
+
 import cec
 import subprocess
 import os
 import time
+import json
+import cgi
 
+# Test with:
+# curl -X POST -H "Content-Type: application/json"  -d '{"command": "on"}' http://localhost:8484
+class Server(BaseHTTPRequestHandler):
+    def _set_headers(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+
+    def do_OPTIONS(self):
+        # Send allow-origin header for preflight POST XHRs.
+        self.send_response(HTTPStatus.NO_CONTENT.value)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'POST')
+        self.send_header('Access-Control-Allow-Headers', 'content-type')
+        self.end_headers()
+
+        
+    def do_POST(self):
+        print("received request.")
+        ctype, pdict = cgi.parse_header(self.headers.get('content-type'))
+        
+        # refuse to receive non-json content
+        if ctype != 'application/json':
+            self.send_response(400)
+            self.end_headers()
+            return
+        
+        # read the message and convert it into a python dictionary
+        length = int(self.headers.get('content-length'))
+        message = json.loads(self.rfile.read(length))
+
+        if message.get("command") == "on":
+          try:
+            tv = cec.Device(cec.CECDEVICE_TV)
+            tv.power_on()
+            cec.set_active_source()
+          except e:
+            print(e)
+        
+        self._set_headers()
+        self.wfile.write(json.dumps({"statusMsg": "Success"}).encode("utf8"))
+        
 
 def get_keymap():
     keymap = {
@@ -42,6 +90,8 @@ if __name__ == "__main__":
     os.environ["DISPLAY"] = ":0"
     os.environ["XAUTHORITY"] = "/home/pi/.Xauthority"
     print("Remote control python script running")
-    while True:
-        time.sleep(1)
+    httpd = HTTPServer(('', 8484), Server)
+    httpd.serve_forever()
+    
+
 
