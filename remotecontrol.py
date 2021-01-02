@@ -62,26 +62,45 @@ def get_keymap():
             13: "Alt_L+KP_F4",
             68: "Super_L",
             72: "Shift_L+KP_Tab",
-            73: "KP_Tab"
+            73: "KP_Tab",
+            145: "BackSpace",
     }
     for i in range(32, 42):
         keymap[i] = f"KP_{i-32}"
     return keymap
 
 KEYMAP = get_keymap()
+# Sometimes only a keydown event is detected
+# (with duration 0)
+# Sometimes only a keyup (with duration > 0)
+# sometimes both. This logic attempts
+# to deduplicate these events and only pick one
+# (the keydown event).
+# (last_code, last_time, last_duration)
+last_event = (None, None, None)
 
-def handler(_, code, duration):
-    print(f"code: {code}, duration: {duration}")
-    if duration > 0:
-        print("ignoring key")
-        return
-    keysym = KEYMAP.get(code)
-    if keysym is None:
-        print(f"Unrecognized code: {code}")
-        return
-    out = subprocess.check_output(["xdotool", "key", keysym], stderr=subprocess.STDOUT)
-    if out:
-        print(out)
+def handler(foo, code, duration):
+    global last_event
+    try:
+        print(f"code: {code}, duration: {duration}, foo: {foo}")
+        last_code, last_time, last_duration = last_event
+        ts = time.time()
+        if (code == last_code):
+            if (ts - last_time < 1 and 
+                last_duration == 0 and 
+                duration > 0):
+                print("Ignoring key up event")
+                return
+        last_event = (code, ts, duration)
+        
+        keysym = KEYMAP.get(code)
+        if keysym is None:
+            print(f"Unrecognized code: {code}")
+            return
+        print("executing keysym " + keysym)
+        subprocess.check_output(["xdotool", "key", keysym])
+    except Exception as e:
+        print("Error executing command: " + str(e))
 
 
 if __name__ == "__main__":
