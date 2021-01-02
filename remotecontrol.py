@@ -7,6 +7,7 @@ import os
 import time
 import json
 import cgi
+import sys
 
 # Test with:
 # curl -X POST -H "Content-Type: application/json"  -d '{"command": "on"}' http://localhost:8484
@@ -104,6 +105,11 @@ def handler(foo, code, duration):
 
 
 if __name__ == "__main__":
+    try:
+        subprocess.check_output(["xdotool", "--help"])
+    except Exception as e:
+        print("Impossible to call xdotool: " + str(e))
+        sys.exit(1)
     cec.init()
     cec.add_callback(handler, cec.EVENT_KEYPRESS)
     os.environ["DISPLAY"] = ":0"
